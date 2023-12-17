@@ -1,0 +1,10 @@
+{
+  "scripts": {
+    "compile": "tsc test.ts",
+    "start": "npm run compile && node test.js"
+  },
+  "dependencies": {
+    "jsforce": "^1.11.1",
+    "typescript": "^5.3.3"
+  }
+}
