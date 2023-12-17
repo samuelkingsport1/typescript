@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 const jsforce = require('jsforce');
 
 const conn = new jsforce.Connection({
