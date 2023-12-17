@@ -51,6 +51,7 @@ var dotenv = require("dotenv");
 var jsforce = require("jsforce");
 var inquirer = require('inquirer');
 dotenv.config();
+// Salesforce credentials and connection setup
 var username = process.env.SF_USERNAME;
 var password = process.env.SF_PASSWORD;
 var securityToken = process.env.SF_SECURITY_TOKEN;
@@ -64,14 +65,19 @@ var conn = new jsforce.Connection({
         redirectUri: 'http://localhost'
     }
 });
+// Command line arguments for action, objectType, and searchTerm
 var action = process.argv[2];
 var objectType = process.argv[3];
 var searchTerm = process.argv[4];
+// Blacklist of object types
+var blacklist = ['User'];
+// Login to Salesforce
 conn.login(username, passwordWithToken, function (err, userInfo) {
     if (err) {
         console.error(err);
         return;
     }
+    // Handling Opportunity object type separately if needed
     if (objectType === 'Opportunity') {
         conn.sobject('Opportunity').describe(function (err, metadata) {
             if (err) {
@@ -83,63 +89,44 @@ conn.login(username, passwordWithToken, function (err, userInfo) {
             console.log('Stage picklist values:', picklistValues);
         });
     }
+    // Dynamic lookup functionality
     if (action === 'lookup') {
-        var isId = /^[a-zA-Z0-9]{15,18}$/.test(searchTerm);
-        var query = void 0;
-        switch (objectType) {
-            case 'Account':
-                query = isId
-                    ? "SELECT Id, Name FROM Account WHERE Id = '".concat(searchTerm, "'")
-                    : "SELECT Id, Name FROM Account WHERE Name LIKE '%".concat(searchTerm, "%'");
-                break;
-            case 'Contact':
-                query = isId
-                    ? "SELECT Id, Name, Account.Name, MobilePhone, Title FROM Contact WHERE Id = '".concat(searchTerm, "'")
-                    : "SELECT Id, Name, Account.Name, MobilePhone, Title FROM Contact WHERE Name LIKE '%".concat(searchTerm, "%' OR MobilePhone LIKE '%").concat(searchTerm, "%' OR Title LIKE '%").concat(searchTerm, "%'");
-                break;
-            case 'Opportunity':
-                query = isId
-                    ? "SELECT Id, Description, Account.Name, OwnerId FROM Opportunity WHERE Id = '".concat(searchTerm, "'")
-                    : "SELECT Id, Description, Account.Name, OwnerId FROM Opportunity";
-                break;
-            case 'Case':
-                query = isId
-                    ? "SELECT Id, CaseNumber, Account.Name, General_Comments__c, Subject FROM Case WHERE Id = '".concat(searchTerm, "'")
-                    : "SELECT Id, CaseNumber, Account.Name, General_Comments__c, Subject FROM Case WHERE CaseNumber LIKE '%".concat(searchTerm, "%' OR General_Comments__c LIKE '%").concat(searchTerm, "%' OR Subject LIKE '%").concat(searchTerm, "%'");
-                break;
-            case 'User':
-                query = isId
-                    ? "SELECT Id, Name, IsActive, Phone FROM User WHERE Id = '".concat(searchTerm, "'")
-                    : "SELECT Id, Name, IsActive, Phone FROM User WHERE Name LIKE '%".concat(searchTerm, "%' OR Phone LIKE '%").concat(searchTerm, "%'");
-                break;
-            default:
-                console.error('Invalid object type');
-                return;
+        // Check if the object type is in the blacklist
+        if (blacklist.includes(objectType)) {
+            console.error('Access to this object type is restricted');
+            return;
         }
-        conn.query(query, function (err, result) {
+        // Use Metadata API to get fields dynamically
+        conn.sobject(objectType).describe(function (err, meta) {
             if (err) {
-                console.error(err);
+                console.error('Error describing object:', err);
                 return;
             }
-            result.records.forEach(function (record) {
-                if (record.attributes.type === 'Opportunity') {
-                    conn.sobject('User').retrieve(record.OwnerId, function (err, user) {
-                        if (err) {
-                            console.error(err);
-                            return;
-                        }
-                        record.OwnerName = user.Name;
-                        console.log("Type: ".concat(record.attributes.type, "\nURL: https://yourInstance.salesforce.com/").concat(record.Id, "\nId: ").concat(record.Id, "\nName: ").concat(record.Name));
-                    });
+            // Determine if searchTerm is an ID or a Name
+            var isId = /^[a-zA-Z0-9]{15,18}$/.test(searchTerm);
+            var queryField = isId ? 'Id' : 'Name';
+            var query = isId
+                ? "SELECT Id, Name FROM ".concat(objectType, " WHERE Id = '").concat(searchTerm, "'")
+                : "SELECT Id, Name FROM ".concat(objectType, " WHERE Name LIKE '%").concat(searchTerm, "%'");
+            // Execute the dynamic query
+            conn.query(query, function (err, result) {
+                if (err) {
+                    console.error('Error during query execution:', err);
+                    return;
                 }
-                else {
+                // Output each found record
+                result.records.forEach(function (record) {
                     console.log("Type: ".concat(record.attributes.type, "\nURL: https://yourInstance.salesforce.com/").concat(record.Id, "\nId: ").concat(record.Id, "\nName: ").concat(record.Name));
-                }
+                });
             });
         });
-        // ... [previous code remains unchanged]
     }
     else if (action === 'create') {
+        // Check if the object type is in the blacklist
+        if (blacklist.includes(objectType)) {
+            console.error('Creation of this object type is restricted');
+            return;
+        }
         conn.sobject(objectType).describe(function (err, meta) {
             var _this = this;
             if (err) {
@@ -197,5 +184,5 @@ conn.login(username, passwordWithToken, function (err, userInfo) {
                 });
             }); });
         });
-    }
-});
+    } // Closing brace for 'else if'
+}); // Closing brace for conn.login
