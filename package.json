@@ -1,11 +1,15 @@
 {
   "scripts": {
     "compile": "tsc test.ts",
-    "start": "npm run compile && node test.js"
+    "start": "npm run compile"
   },
   "dependencies": {
     "dotenv": "^16.3.1",
+    "inquirer": "^7.3.3",
     "jsforce": "^1.11.1",
     "typescript": "^5.3.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.4"
   }
 }
